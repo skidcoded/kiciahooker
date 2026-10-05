@@ -9545,7 +9545,12 @@ if instance.TextSize ~= 16 then
 instance.TextSize = 16
 end
 
-local x = game:GetService("TextService"):GetTextSize(instance.Text, 16, instance.FontFace, Vector2.new(100000, 100000)).X
+local _tbp = Instance.new("GetTextBoundsParams")
+_tbp.Text = instance.Text
+_tbp.Size = 16
+_tbp.Font = instance.FontFace
+_tbp.Width = 100000
+local x = game:GetService("TextService"):GetTextBoundsAsync(_tbp).X
 
 if arg.MaxWidth < x then
 instance.TextSize = math.max(math.floor(v86[13] * arg.MaxWidth / x), 8)
