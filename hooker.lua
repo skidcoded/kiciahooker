@@ -2,6 +2,7 @@ if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
     pcall(getgenv().KiciaRebuild.Unload)
 end
 if not game:IsLoaded() then game.Loaded:Wait() end
+print("[Kicia] script file executing, PlaceId=" .. tostring(game.PlaceId))
 
 local K: { [string]: any } = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
@@ -18948,13 +18949,34 @@ if v116 == nil then
 return nil
 end
 else
-v116 = arg:WaitForChild(v115, math.huge)
+local _t0 = os.clock()
+while true do
+v116 = arg:WaitForChild(v115, 5)
+if v116 ~= nil then
+break
+end
+print("[Kicia] waiting for " .. arg:GetFullName() .. " -> " .. tostring(v115) .. " (" .. math.floor(os.clock() - _t0) .. "s)")
+if os.clock() - _t0 > 60 then
+error("[Kicia] timed out waiting for " .. arg:GetFullName() .. " -> " .. tostring(v115) .. ". Wrong game? This script is built for Rivals.", 2)
+end
+end
 end
 
 arg = cloneref(v116)
 end
 
 if arg3 then
+local _ok, _res = pcall(require, arg)
+if _ok then
+return _res
+end
+for _try = 1, 4 do
+task.wait(2)
+_ok, _res = pcall(require, arg)
+if _ok then
+return _res
+end
+end
 return require(arg)
 end
 return cloneref(arg)
@@ -66392,4 +66414,66 @@ function K.Unload()
     if getgenv().KiciaRebuild == K then getgenv().KiciaRebuild = nil end
 end
 
+-- (autoexec fix: game controller modules error when required before the
+-- game finishes replicating them, so wait for Controllers before booting)
+task.spawn(function()
+local _lp = game:GetService("Players").LocalPlayer
+local _ps = _lp and _lp:FindFirstChild("PlayerScripts")
+if _lp and not _ps then
+pcall(function() _lp:WaitForChild("PlayerScripts", 30) end)
+_ps = _lp:FindFirstChild("PlayerScripts")
+end
+local _ctrl = _ps and _ps:FindFirstChild("Controllers")
+if _ps and not _ctrl then
+print("[Kicia] waiting for PlayerScripts.Controllers ...")
+pcall(function() _ps:WaitForChild("Controllers", 30) end)
+_ctrl = _ps:FindFirstChild("Controllers")
+end
+if not _ctrl then
+warn("[Kicia] ABORTED: PlayerScripts.Controllers not found. This script is built for Rivals - remove it from autoexec if you are in a different game.")
+return
+end
+task.wait(3)
+-- Pre-warm: require the heaviest game controller until it loads cleanly.
+-- A successful require is cached, so j1()'s internal requires then hit
+-- the cache instead of re-executing half-initialized game modules
+-- (which is what spams "attempt to index nil" / "experienced an error").
+local _pdcMod = _ctrl:FindFirstChild("PlayerDataController")
+local _canary = _ctrl:FindFirstChild("FighterController")
+local _ready = false
+local _lastErr = "?"
+if _pdcMod and _canary then
+print("[Kicia] waiting for player data (PlayerDataController.CurrentData) ...")
+for _i = 1, 90 do
+local _ok, _res = pcall(require, _pdcMod)
+if _ok then
+if type(_res) == "table" and _res.CurrentData ~= nil then
+local _ok2, _err2 = pcall(require, _canary)
+if _ok2 then
+_ready = true
+break
+else
+_lastErr = tostring(_err2):sub(1, 300)
+end
+else
+_lastErr = "CurrentData=" .. tostring(_res and _res.CurrentData) .. " (type " .. type(_res) .. ")"
+end
+else
+_lastErr = tostring(_res):sub(1, 300)
+end
+if _i == 1 or _i % 5 == 0 then
+print("[Kicia] not ready (" .. _i .. "/90): " .. _lastErr)
+end
+task.wait(2)
+end
+else
+_lastErr = "PlayerDataController or FighterController missing under Controllers"
+end
+if not _ready then
+warn("[Kicia] ABORTED: FighterController never initialized (tried 3 min). Last error: " .. tostring(_lastErr))
+warn("[Kicia] Try executing manually after spawning. PlaceId=" .. tostring(game.PlaceId))
+return
+end
+print("[Kicia] controllers ready, booting ...")
 tbl17.j1()(boot)
+end)
