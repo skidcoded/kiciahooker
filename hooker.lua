@@ -42623,7 +42623,7 @@ setmetatable(tbl18, index2)
 return tbl18
 end
 
-index2.GetAsync = function(arg, arg2)
+index2.GetAsync = function(arg, arg2, arg3)
 local resolved = arg._resolved
 local v119 = resolved[arg2]
 if v119 ~= nil then
@@ -42631,10 +42631,14 @@ return v119 ~= false and v116.resolve(v119) or v116.reject()
 end
 local v120 = v115.classify(arg2)
 if v120 == "Asset" then
+if arg3 == "image" then
 local _id = tostring(arg2):match("(%d+)")
 local _url = _id and ("rbxthumb://type=Asset&id=" .. _id .. "&w=420&h=420") or arg2
 resolved[arg2] = _url
 return v116.resolve(_url)
+end
+resolved[arg2] = arg2
+return v116.resolve(arg2)
 end
 
 if v120 == "File" then
@@ -42842,7 +42846,7 @@ end
 if v124 == nil then
 return v120.reject()
 end
-return arg._customAssets:GetAsync(v124)
+return arg._customAssets:GetAsync(v124, "image")
 end
 
 index2.Preload = function(arg, image)
