@@ -2092,7 +2092,7 @@ local background = v115.Background
 
 for _, v116 in tbl20, nil, nil do
 local v117 = v115[v116]
-tbl21[v116] = { R = v117.R / background.R, G = v117.G / background.G, B = v117.B / background.B }
+tbl21[v116] = { R = v117.R - background.R, G = v117.G - background.G, B = v117.B - background.B }
 end
 
 local function fn38(I,W)if  v115 [I]==W then return;end; v115 [I]=W;local N= tbl18 [I];if N==nil then return;end;for P in N,nil,nil do local N_17=P._propBindingsByToken[I];if N_17~=nil then for a,a_18 in N_17,nil,nil do a_18.Instance[a_18.Property]=W;end;end;for a,a_19 in P._gradients,nil,nil do if table.find(a_19.Tokens,I)~=nil then a_19.Gradient.Color= fn36 (a_19.Tokens,a_19.Times);end;end;N_17=P._statefulApplyByToken[I];if N_17~=nil then for l,l_20 in N_17,nil,nil do l_20(W);end;end;end;end
@@ -2100,7 +2100,7 @@ local function fn38(I,W)if  v115 [I]==W then return;end; v115 [I]=W;local N= tbl
 local function fn39(arg)
 for _, v116 in tbl20, nil, nil do
 local v117 = tbl21[v116]
-fn38(v116, Color3.new(math.clamp(arg.R * v117.R, v86[186], 1), math.clamp(arg.G * v117.G, 0, 1), math.clamp(arg.B * v117.B, 0, 1)))
+fn38(v116, Color3.new(math.clamp(arg.R + v117.R, v86[186], 1), math.clamp(arg.G + v117.G, 0, 1), math.clamp(arg.B + v117.B, 0, 1)))
 end
 end
 
@@ -11737,6 +11737,7 @@ arg3(v127.Container)
 end
 
 arg:_UpdateLayout()
+v126 = v127
 return v127
 end
 
@@ -22958,14 +22959,51 @@ local GuiNameSpoofer = v115.new("player_spoofer.GuiNameSpoofer")
 local tbl18 = {}
 local tbl19 = {}
 local playerIdentities = arg._playerIdentities
-local function fn36(...) end
+local function fn36()
+table.clear(tbl19)
+for _, _p in ipairs(game:GetService("Players"):GetPlayers()) do
+table.insert(tbl19, { Player = _p, Kind = "Name", Name = _p.Name })
+table.insert(tbl19, { Player = _p, Kind = "DisplayName", Name = _p.DisplayName })
+end
+end
 local function fn37(I,W)if W=="Name"then return  playerIdentities :GetPresented(I);end;return  playerIdentities :GetPresentedDisplay(I);end
 local function fn38(l,I,W)local N,P,a={},1,0;while true do local e,c=l:find(I,P,true);if e==nil or c==nil then break;end;if P<e then table.insert(N,l:sub(P,e-1));end;table.insert(N,W);a+=1;P=c+1;end;if a==0 then return l,0;end;if P<=#l then table.insert(N,l:sub(P));end;return table.concat(N),a;end
-local function _fn39(I)local W={};local N=I;for I,P in  tbl19 ,nil,nil do I= fn37 (P.Player,P.Kind);local a,e= fn38 (N,P.Name,I);if e>0 then W[P.Player]=true;N=a;end;end;return W,N;end
-local function fn40(...) end
-local function fn41(...) end
-local function _fn42(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;N.TextChangedConnection:Disconnect();N.DestroyingConnection:Disconnect();if W and N.Tracked~=nil then  fn41 (I,N.Tracked);end;end
-local function fn43(...) end
+local function _fn39(I)local W={};local N=I;for _, P in ipairs(tbl19) do local _r= fn37 (P.Player,P.Kind);local a,e= fn38 (N,P.Name,_r);if e>0 then W[P.Player]=true;N=a;end;end;return W,N;end
+local function fn40(label)
+if label == nil then return end
+pcall(function()
+local N = tbl18[label]
+if N == nil then
+fn43(label)
+return
+end
+local _orig = (N.Tracked and N.Tracked.OriginalText) or label.Text
+_fn42(label, false)
+label.Text = _orig
+fn43(label)
+end)
+end
+local function fn41(label, tracked)
+if tracked ~= nil and tracked.OriginalText ~= nil and tracked.SpoofedText ~= tracked.OriginalText and label.Text == tracked.SpoofedText then
+label.Text = tracked.OriginalText
+end
+end
+local function _fn42(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;if N.TextChangedConnection~=nil then N.TextChangedConnection:Disconnect();end;if N.DestroyingConnection~=nil then N.DestroyingConnection:Disconnect();end;if W and N.Tracked~=nil then  fn41 (I,N.Tracked);end;end
+local function fn43(label)
+_fn42(label, false)
+local _affected, _newText = _fn39(label.Text)
+if _newText == label.Text then return end
+local _entry = { Tracked = { PlayerSet = _affected, OriginalText = label.Text, SpoofedText = _newText } }
+label.Text = _newText
+_entry.TextChangedConnection = label:GetPropertyChangedSignal("Text"):Connect(function()
+if label.Text == _entry.Tracked.SpoofedText then return end
+fn43(label)
+end)
+_entry.DestroyingConnection = label.Destroying:Connect(function()
+_fn42(label, false)
+end)
+tbl18[label] = _entry
+end
 fn36()
 
 v116(GuiNameSpoofer, function(arg2, arg3)
@@ -42472,6 +42510,13 @@ local v115 = fn36(arg)
 if v115 == "" then
 return nil
 end
+local _q = v115:match('^"(.-)"$')
+if _q ~= nil then
+v115 = fn36(_q)
+if v115 == "" then
+return nil
+end
+end
 local match = v115:match("^(%d+)$")
 if match ~= nil then
 return string.format("rbxassetid://%s", tostring(match))
@@ -42521,16 +42566,12 @@ local function fn37(arg)
 if getcustomasset == nil then
 return v117.err("CustomAssets", "loadAssetFromFile", "missing 'getcustomasset'")
 end
-local v119, v120 = v107(isfile, arg)
-if not v119 or not v120 then
-return v117.err("CustomAssets", "loadAssetFromFile", string.format("path '%s' does not contain a file", tostring(arg)))
-end
 local v121, v122 = v107(getcustomasset, arg)
-if not v121 then
-local v123 = tostring
-return v117.err("CustomAssets", "loadAssetFromFile", string.format("getcustom asset threw an error when loading '%s': %s", tostring(arg), v123(v122)))
-end
+if v121 then
 return v117.ok(v122)
+end
+local v123 = tostring
+return v117.err("CustomAssets", "loadAssetFromFile", string.format("could not load '%s' (%s). Tip: copy the image into your executor workspace folder and enter just the file name.", tostring(arg), v123(v122)))
 end
 
 local function fn38(arg)
@@ -42590,8 +42631,10 @@ return v119 ~= false and v116.resolve(v119) or v116.reject()
 end
 local v120 = v115.classify(arg2)
 if v120 == "Asset" then
-resolved[arg2] = arg2
-return v116.resolve(arg2)
+local _id = tostring(arg2):match("(%d+)")
+local _url = _id and ("rbxthumb://type=Asset&id=" .. _id .. "&w=420&h=420") or arg2
+resolved[arg2] = _url
+return v116.resolve(_url)
 end
 
 if v120 == "File" then
@@ -43440,7 +43483,8 @@ arg._offset = arg2.Offset
 local label = arg._label
 label.Text = arg2.Content
 label.TextSize = arg2.Size
-label.FontFace = v116:Get(arg2.Font)
+local _fok, _f = v107(function() return v116:Get(arg2.Font) end)
+if _fok and typeof(_f) == "Font" then label.FontFace = _f end
 arg._stroke.Enabled = arg2.Outline.Enabled
 arg._stroke.Color = arg2.Outline.Color
 arg._stroke.Thickness = arg2.Outline.Thickness
